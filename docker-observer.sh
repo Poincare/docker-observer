@@ -9,3 +9,4 @@ docker exec -it $1 /bin/bash -c ". /root/add_to_bashrc.sh"
 docker exec -it $1 /bin/bash
 
 docker exec -it $1 /bin/bash -c "cat /root/observer_log.txt" > observer_log.txt
+docker exec -it $1 /bin/bash -c "cat /root/observer_checked_in_files.txt" > observer_checked_in_filest.xt
