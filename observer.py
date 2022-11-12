@@ -21,7 +21,7 @@ def filter_to_remove_ls(command_output_pairs):
 
 	return [ (x, y) for (x, y) in command_output_pairs if not x.split(' ')[0] in remove_commands ]
 
-def connect_to_container():
+def connect_to_container(container_id):
 	"""Opens a shell to the container, waits for it to exit (i.e. once the user is done providing input)
 	and then returns the list of command & output code pairs
 	from the run."""
@@ -29,7 +29,8 @@ def connect_to_container():
 	# start the shell
 	subprocess.run([
 		'/bin/bash',
-	  'docker-observer.sh'
+	  'docker-observer.sh',
+		container_id
 	]) 
 
 	# parse output
@@ -44,12 +45,18 @@ def connect_to_container():
 
 	return command_output_pairs
 
+def format_command_output_pairs(command_output_pairs):
+	"""Returns the command output pairs as a single string."""
+	return "\n".join([ '%s\t%s' % (command, output) 
+		for command, output in command_output_pairs ])
+
 def main():
 	parser = argparse.ArgumentParser(
 		prog = 'DockerObserver',
 		description = 'Start a shell in a docker container and observe all the commands.',
 	)
 
+	parser.add_argument('container', help='Container ID to connect to.') 
 	parser.add_argument('-s', '--successful', 
 		action='store_true',
 		help='Only print out the commands with successful exit codes.')
@@ -68,7 +75,7 @@ def main():
 		with open(args.load, 'rb') as fh:
 			command_output_pairs = pickle.load(fh) 
 	else:
-		command_output_pairs = connect_to_container()
+		command_output_pairs = connect_to_container(args.container)
 
 	if args.successful:
 		command_output_pairs = filter_to_successful(command_output_pairs)
@@ -79,7 +86,7 @@ def main():
 	with open('observer_output.pickle', 'wb+') as fh:
 		pickle.dump(command_output_pairs, fh)
 
-	print(command_output_pairs)
+	print(format_command_output_pairs(command_output_pairs))
 
 if __name__ == '__main__':
 	main()
