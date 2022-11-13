@@ -2,6 +2,8 @@ import subprocess
 import IPython
 import argparse
 import pickle
+import pathlib
+import os
 
 def filter_to_successful(command_output_pairs):
 	"""Filters the list of command output pairs to only the 
@@ -23,8 +25,9 @@ def filter_to_remove_ls(command_output_pairs):
 
 def connect_to_container(container_id):
 	"""Opens a shell to the container, waits for it to exit (i.e. once the user is done providing input)
-	and then returns the list of command & output code pairs
-	from the run."""
+	and then returns as a tuple:
+		* list of command & output code pairs from the run
+		* the list of de-duplicated files that were checked in"""
 
 	# start the shell
 	subprocess.run([
@@ -43,12 +46,46 @@ def connect_to_container(container_id):
 
 		command_output_pairs.append((command, output))
 
-	return command_output_pairs
+	checked_in_file_lines = open('observer_checked_in_files.txt', 'r').readlines()
+	checked_in_files = list(set([ x.strip() for x in checked_in_file_lines ]))
+
+	return command_output_pairs, checked_in_files
 
 def format_command_output_pairs(command_output_pairs):
 	"""Returns the command output pairs as a single string."""
 	return "\n".join([ '%s\t%s' % (command, output) 
 		for command, output in command_output_pairs ])
+
+def copy_files_from_container(container_id, checked_in_files, copy_to_directory="container_files"):
+	"""Copies the checked in files from the container to a local directory."""
+
+	try:
+		os.mkdir(copy_to_directory)
+	except FileExistsError:
+		pass
+
+	container_path_to_local_path = {
+		filepath : (copy_to_directory + filepath)
+		for filepath in checked_in_files
+	}
+	print(f'Container path to local path: {container_path_to_local_path}')
+
+	# create the necessary directory structure in the target directory
+	for _, localpath in container_path_to_local_path.items():
+		print(f'Local path: {localpath}')
+		# filepath starts with a "/"
+		pathlib.Path(localpath).parent.mkdir(parents=True, exist_ok=True)
+
+	# copy the files from the container to the local directory structure
+	# TODO use the Docker API to do this, not subprocesses
+	for filepath, localpath in container_path_to_local_path.items():
+		subprocess.run([
+			'docker',
+			'cp',
+			f'{container_id}:{filepath}',
+			localpath
+		])
+		print(f'Copied {filepath} to {localpath}')
 
 def main():
 	parser = argparse.ArgumentParser(
@@ -75,7 +112,7 @@ def main():
 		with open(args.load, 'rb') as fh:
 			command_output_pairs = pickle.load(fh) 
 	else:
-		command_output_pairs = connect_to_container(args.container)
+		command_output_pairs, checked_in_files = connect_to_container(args.container)
 
 	if args.successful:
 		command_output_pairs = filter_to_successful(command_output_pairs)
@@ -85,6 +122,9 @@ def main():
 	# by default, we want to save the output into a file that can be read later
 	with open('observer_output.pickle', 'wb+') as fh:
 		pickle.dump(command_output_pairs, fh)
+
+
+	copy_files_from_container(args.container, checked_in_files)
 
 	print(format_command_output_pairs(command_output_pairs))
 
