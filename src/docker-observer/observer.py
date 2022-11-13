@@ -31,7 +31,7 @@ def connect_to_container(container_id):
 	# start the shell
 	subprocess.run([
 		'/bin/bash',
-	  'docker-observer.sh',
+	  	'docker-observer/bash_scripts/docker-observer.sh',
 		container_id
 	]) 
 
