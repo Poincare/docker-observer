@@ -35,11 +35,12 @@ def connect_to_container(container_id):
 		container_id
 	]) 
 
-	# parse output
-	lines = open('observer_log.txt', 'r').readlines()
+	# parse output (skip first line since it contains an extra "OUTPUT" listing because
+	# of the way `trap DEBUG` works in bash)
+	lines = open('observer_log.txt', 'r').readlines()[1:]
 
 	command_output_pairs = []
-	for i in range(0, len(lines), 2):
+	for i in range(0, len(lines)-1, 2):
 		command = ''.join(lines[i].strip().split("  ")[1:])
 		output = lines[i+1].replace('OUTPUT: ', '').strip()
 
